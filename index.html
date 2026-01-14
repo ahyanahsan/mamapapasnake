@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mama Papa Snake</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --orange: #FCAC15;
+            --indigo-bloom: #5A2EB6;
+            --strong-cyan: #02D0D3;
+            --space-indigo: #363851;
+            --space-indigo-2: #181C39;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            touch-action: none;
+            background-color: var(--space-indigo-2);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-canvas {
+            border: 4px solid var(--space-indigo);
+            box-shadow: 0 0 30px rgba(2, 208, 211, 0.2);
+            border-radius: 8px;
+            background-color: #0a1a0a; /* Fallback dark green */
+        }
+
+        .joy-pad {
+            display: grid;
+            grid-template-areas: 
+                ". up ."
+                "left down right";
+            gap: 12px;
+            background: var(--space-indigo);
+            padding: 20px;
+            border-radius: 40px;
+            box-shadow: 0 10px 0 var(--space-indigo-2);
+        }
+
+        .joy-btn {
+            width: 65px;
+            height: 65px;
+            background: #ffffff;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: var(--space-indigo-2);
+            box-shadow: 0 5px 0 #cbd5e1;
+            transition: all 0.05s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .joy-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #cbd5e1;
+        }
+
+        .btn-up { grid-area: up; }
+        .btn-down { grid-area: down; }
+        .btn-left { grid-area: left; }
+        .btn-right { grid-area: right; }
+
+        .neon-text {
+            text-shadow: 0 0 10px var(--strong-cyan);
+        }
+
+        .credit-footer {
+            margin-top: 2rem;
+            padding: 8px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px;
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .credit-name {
+            color: var(--strong-cyan);
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <!-- Header / Scoreboard -->
+    <div class="w-full max-w-md flex justify-between items-center mb-6 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-md">
+        <div class="flex items-center gap-4">
+            <button onclick="togglePause()" class="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors border border-white/10">
+                <svg id="pause-icon" class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <div class="flex flex-col">
+                <span class="text-[10px] font-bold uppercase tracking-widest text-white/50">Score</span>
+                <span id="score" class="text-3xl font-black text-[--strong-cyan] leading-none neon-text">0</span>
+            </div>
+        </div>
+        <div class="text-right flex flex-col">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-white/50">Best</span>
+            <span id="high-score" class="text-2xl font-bold text-white leading-none">0</span>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div class="relative">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- Pause Overlay -->
+        <div id="pause-screen" class="hidden absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center rounded-lg z-20">
+            <h2 class="text-4xl font-black text-white mb-6 tracking-tight">PAUSED</h2>
+            <button onclick="togglePause()" class="bg-[--strong-cyan] text-[--space-indigo-2] font-black py-4 px-12 rounded-2xl transition-all shadow-[0_6px_0_#01a2a5] active:shadow-none active:translate-y-1">
+                RESUME
+            </button>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="game-over" class="hidden absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center rounded-lg z-20">
+            <h2 class="text-4xl font-black text-white mb-2">CRASHED!</h2>
+            <p id="final-score-text" class="text-[--orange] mb-8 font-bold text-xl">Points: 0</p>
+            <button onclick="resetGame()" class="bg-[--strong-cyan] hover:opacity-90 text-[--space-indigo-2] font-black py-4 px-12 rounded-2xl transition-all shadow-[0_6px_0_#01a2a5] active:shadow-none active:translate-y-1">
+                RESTART
+            </button>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="start-screen" class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center rounded-lg z-10 border border-white/10">
+            <h1 class="text-3xl font-black text-white mb-8 tracking-tighter neon-text">Mama Papa Snake</h1>
+            <button onclick="startGame()" class="bg-[--orange] hover:opacity-90 text-[--space-indigo-2] font-black text-2xl py-5 px-16 rounded-2xl shadow-[0_6px_0_#c48610] active:shadow-none active:translate-y-1 transition-all">
+                PLAY
+            </button>
+        </div>
+    </div>
+
+    <!-- Redesigned Controls -->
+    <div class="mt-8 md:hidden">
+        <div class="joy-pad">
+            <button class="joy-btn btn-up" onmousedown="handleInput('UP')" ontouchstart="handleInput('UP')">▲</button>
+            <button class="joy-btn btn-left" onmousedown="handleInput('LEFT')" ontouchstart="handleInput('LEFT')">◀</button>
+            <button class="joy-btn btn-down" onmousedown="handleInput('DOWN')" ontouchstart="handleInput('DOWN')">▼</button>
+            <button class="joy-btn btn-right" onmousedown="handleInput('RIGHT')" ontouchstart="handleInput('RIGHT')">▶</button>
+        </div>
+    </div>
+
+    <!-- Visual Credit Footer -->
+    <div class="credit-footer">
+        <span>Created by</span>
+        <span class="credit-name">Ahyan Ahsan</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('high-score');
+        const gameOverEl = document.getElementById('game-over');
+        const startScreenEl = document.getElementById('start-screen');
+        const pauseScreenEl = document.getElementById('pause-screen');
+        const finalScoreText = document.getElementById('final-score-text');
+        const pauseIcon = document.getElementById('pause-icon');
+
+        const gridSize = 17; 
+        let cell;
+        let snake = [];
+        let food = { x: 5, y: 5 };
+        let dx = 1;
+        let dy = 0;
+        let inputQueue = [];
+        let score = 0;
+        let highScore = localStorage.getItem('mama-papa-neon-score') || 0;
+        let lastUpdateTime = 0;
+        let gameActive = false;
+        let isPaused = false;
+        
+        const tickSpeed = 240; 
+
+        function init() {
+            const size = Math.min(window.innerWidth - 32, 400);
+            canvas.width = size;
+            canvas.height = size;
+            cell = size / gridSize;
+            highScoreEl.innerText = highScore;
+        }
+
+        function startGame() {
+            startScreenEl.classList.add('hidden');
+            resetGame();
+        }
+
+        function togglePause() {
+            if (!gameActive) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseScreenEl.classList.remove('hidden');
+                pauseIcon.innerHTML = '<path d="M8 5v14l11-7z"/>'; // Play icon
+            } else {
+                pauseScreenEl.classList.add('hidden');
+                pauseIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'; // Pause icon
+                lastUpdateTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function resetGame() {
+            const center = Math.floor(gridSize / 2);
+            snake = [
+                { x: center, y: center },
+                { x: center - 1, y: center },
+                { x: center - 2, y: center }
+            ];
+            dx = 1; dy = 0;
+            inputQueue = [];
+            score = 0;
+            scoreEl.innerText = score;
+            gameOverEl.classList.add('hidden');
+            pauseScreenEl.classList.add('hidden');
+            isPaused = false;
+            pauseIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+            spawnFood();
+            lastUpdateTime = 0;
+            gameActive = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function spawnFood() {
+            food = {
+                x: Math.floor(Math.random() * gridSize),
+                y: Math.floor(Math.random() * gridSize)
+            };
+            for (let part of snake) {
+                if (part.x === food.x && part.y === food.y) return spawnFood();
+            }
+        }
+
+        function handleInput(dir) {
+            if (!gameActive || isPaused) return;
+            const lastDir = inputQueue.length > 0 ? inputQueue[inputQueue.length - 1] : { dx, dy };
+            let next = { dx: 0, dy: 0 };
+            if (dir === 'UP' && lastDir.dy === 0) next = { dx: 0, dy: -1 };
+            else if (dir === 'DOWN' && lastDir.dy === 0) next = { dx: 0, dy: 1 };
+            else if (dir === 'LEFT' && lastDir.dx === 0) next = { dx: -1, dy: 0 };
+            else if (dir === 'RIGHT' && lastDir.dx === 0) next = { dx: 1, dy: 0 };
+            if ((next.dx !== 0 || next.dy !== 0) && inputQueue.length < 2) inputQueue.push(next);
+        }
+
+        window.addEventListener('keydown', e => {
+            const keys = { ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', w: 'UP', s: 'DOWN', a: 'LEFT', d: 'RIGHT' };
+            if (keys[e.key]) { e.preventDefault(); handleInput(keys[e.key]); }
+            if (e.key.toLowerCase() === 'p') togglePause();
+        });
+
+        function gameLoop(timestamp) {
+            if (!gameActive || isPaused) return;
+            if (!lastUpdateTime) lastUpdateTime = timestamp;
+            if (timestamp - lastUpdateTime > tickSpeed) {
+                lastUpdateTime = timestamp;
+                update();
+            }
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            if (inputQueue.length > 0) {
+                const nextMove = inputQueue.shift();
+                dx = nextMove.dx; dy = nextMove.dy;
+            }
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) return endGame();
+            for (let part of snake) if (part.x === head.x && part.y === head.y) return endGame();
+
+            snake.unshift(head);
+            if (head.x === food.x && head.y === food.y) {
+                score++;
+                scoreEl.innerText = score;
+                if (score > highScore) {
+                    highScore = score;
+                    highScoreEl.innerText = highScore;
+                    localStorage.setItem('mama-papa-neon-score', highScore);
+                }
+                spawnFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function draw() {
+            // Background
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    ctx.fillStyle = (i + j) % 2 === 0 ? '#0d1a0d' : '#081408';
+                    ctx.fillRect(i * cell, j * cell, cell, cell);
+                    ctx.fillStyle = 'rgba(255,255,255,0.02)';
+                    ctx.fillRect(i * cell + cell/2, j * cell + cell/2, 1, 1);
+                }
+            }
+
+            // Food
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#FCAC15';
+            ctx.fillStyle = '#FCAC15';
+            const ap = cell * 0.2;
+            ctx.beginPath();
+            ctx.arc(food.x * cell + cell/2, food.y * cell + cell/2, (cell/2) - ap, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Snake
+            snake.forEach((part, index) => {
+                const isHead = index === 0;
+                if (isHead) {
+                    ctx.fillStyle = '#02D0D3';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#02D0D3';
+                } else {
+                    const ratio = index / snake.length;
+                    ctx.fillStyle = interpolateColor('#02D0D3', '#5A2EB6', ratio);
+                    ctx.shadowBlur = 0;
+                }
+                const r = isHead ? cell/3 : cell/5;
+                drawRoundedRect(ctx, part.x * cell + 2, part.y * cell + 2, cell - 4, cell - 4, r);
+
+                if (isHead) {
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = 'white';
+                    const eyeS = cell * 0.12;
+                    const eyeO = cell * 0.25;
+                    let ex1, ey1, ex2, ey2;
+                    if (dx === 1) { ex1 = ex2 = part.x * cell + cell - eyeO; ey1 = part.y * cell + eyeO; ey2 = part.y * cell + cell - eyeO; }
+                    else if (dx === -1) { ex1 = ex2 = part.x * cell + eyeO; ey1 = part.y * cell + eyeO; ey2 = part.y * cell + cell - eyeO; }
+                    else if (dy === -1) { ey1 = ey2 = part.y * cell + eyeO; ex1 = part.x * cell + eyeO; ex2 = part.x * cell + cell - eyeO; }
+                    else { ey1 = ey2 = part.y * cell + cell - eyeO; ex1 = part.x * cell + eyeO; ex2 = part.x * cell + cell - eyeO; }
+                    ctx.beginPath();
+                    ctx.arc(ex1, ey1, eyeS, 0, Math.PI*2);
+                    ctx.arc(ex2, ey2, eyeS, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            });
+        }
+
+        function interpolateColor(color1, color2, factor) {
+            const r1 = parseInt(color1.substring(1,3), 16);
+            const g1 = parseInt(color1.substring(3,5), 16);
+            const b1 = parseInt(color1.substring(5,7), 16);
+            const r2 = parseInt(color2.substring(1,3), 16);
+            const g2 = parseInt(color2.substring(3,5), 16);
+            const b2 = parseInt(color2.substring(5,7), 16);
+            const r = Math.round(r1 + factor * (r2 - r1));
+            const g = Math.round(g1 + factor * (g2 - g1));
+            const b = Math.round(b1 + factor * (b2 - b1));
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function drawRoundedRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function endGame() {
+            gameActive = false;
+            finalScoreText.innerText = `Points: ${score}`;
+            gameOverEl.classList.remove('hidden');
+        }
+
+        window.onload = init;
+        window.addEventListener('resize', init);
+    </script>
+</body>
+</html>
+
